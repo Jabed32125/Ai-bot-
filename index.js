@@ -1,47 +1,37 @@
 const express = require('express');
-const bodyParser = require('body-parser');
 const axios = require('axios');
-require('dotenv').config();
-
 const app = express();
-const port = process.env.PORT || 3000;
+app.use(express.json());
 
-app.use(bodyParser.json());
+const PORT = process.env.PORT || 3000;
+const POE_API_KEY = 'your-poe-api-key'; // এখানে তোমার Poe API key বসাও
 
-app.get('/', (req, res) => {
-  res.send('🤖 AI Bot is running!');
-});
+app.post('/chat', async (req, res) => {
+  const userMessage = req.body.message;
 
-app.post('/webhook', async (req, res) => {
-  const message = req.body.message || "";
-  
-  if (message.startsWith("/ask")) {
-    const query = message.replace("/ask", "").trim();
-    const reply = await askPoe(query);
-    res.json({ reply });
-  } else {
-    res.json({ reply: "❌ কমান্ড বুঝতে পারি নাই। `/ask` দিয়ে প্রশ্ন করুন।" });
-  }
-});
-
-async function askPoe(prompt) {
   try {
-    const response = await axios.post('https://api.poe.com/v1/sendMessage', {
-      prompt,
-      bot: "capybara",
+    const response = await axios.post('https://api.poe.com/v1/chat/completions', {
+      model: 'gpt-3.5-turbo',
+      messages: [
+        { role: 'system', content: 'You are a helpful bot that replies in Bangla and English.' },
+        { role: 'user', content: userMessage }
+      ]
     }, {
       headers: {
-        'Authorization': `Bearer ${process.env.POE_API_KEY}`,
+        'Authorization': `Bearer ${POE_API_KEY}`,
         'Content-Type': 'application/json'
       }
     });
 
-    return response.data.text || "⚠️ উত্তর পাওয়া যায়নি।";
-  } catch (error) {
-    return "❌ AI উত্তর দিতে ব্যর্থ।";
-  }
-}
+    const botReply = response.data.choices[0].message.content;
+    res.json({ reply: botReply });
 
-app.listen(port, () => {
-  console.log(`✅ Bot running at http://localhost:${port}`);
+  } catch (error) {
+    console.error('Error:', error.response?.data || error.message);
+    res.status(500).json({ error: 'Something went wrong!' });
+  }
+});
+
+app.listen(PORT, () => {
+  console.log(`AI bot server is running on port ${PORT}`);
 });
